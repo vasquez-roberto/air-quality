@@ -1,10 +1,10 @@
-# 🍃 Air Quality & Sociodemographic Mapping Platform (Monterrey Metropolitan Area)
+# Air Quality & Sociodemographic Mapping Platform (Monterrey Metropolitan Area)
 
 Sistema automatizado en Python para el monitoreo, la interpolación espacial de la calidad del aire ($PM_{2.5}$ y $PM_{10}$) y la integración de indicadores sociodemográficos por AGEB (Censo de Población y Vivienda 2020 - INEGI).
 
 ---
 
-## 📌 Descripción del Proyecto
+## Descripción del Proyecto
 
 El objetivo de este proyecto es analizar la exposición a contaminantes atmosféricos en poblaciones vulnerables dentro del Área Metropolitana de Monterrey.
 
@@ -28,7 +28,7 @@ Como resultado, se exportan archivos **GeoJSON enriquecidos**, listos para despl
 
 ---
 
-## 📊 Variables Integradas por AGEB
+## Variables Integradas por AGEB
 
 Cada polígono en las capas `AQ_PM25.geojson` y `AQ_PM10.geojson` contiene los siguientes atributos dentro de su propiedad `properties`:
 
@@ -45,7 +45,7 @@ Cada polígono en las capas `AQ_PM25.geojson` y `AQ_PM10.geojson` contiene los s
 
 ---
 
-## 📂 Estructura del Repositorio
+## Estructura del Repositorio
 
 ```text
 .
