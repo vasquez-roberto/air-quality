@@ -27,17 +27,58 @@ cargar_env(Path(__file__).resolve().with_name(".env"))
 
 API_KEY = os.getenv("API_KEY_PURPLEAIR")
 CSV_FILE = "sensores_detectados.csv"
+CSV_CENSO_INEGI = "cpv2020.csv"
 SALIDA_GEOJSON_SENSORES = "sensores.geojson"
 SALIDA_GEOJSON_COLONIAS_PM25 = "AQ_PM25.geojson"
 SALIDA_GEOJSON_COLONIAS_PM10 = "AQ_PM10.geojson"
 ARCHIVO_SHP_COLONIAS = "shp/2025_1_19_A.shp"
 CAMPOS = "pm1.0,pm2.5"
 
-# Límites de cribado basados en el extremo superior de las tablas AQI de EPA.
-# No son límites físicos: un evento extraordinario debe revisarse manualmente.
 MIN_PM = 0.0
 MAX_PM25 = 500.4
 MAX_PM10 = 604.0
+
+
+def cargar_datos_censales(ruta_csv):
+    """Carga y procesa los indicadores sociodemográficos del censo INEGI por AGEB."""
+    if not os.path.exists(ruta_csv):
+        print(f"Advertencia: No se encontró el archivo censal en {ruta_csv}")
+        return pd.DataFrame()
+
+    df = pd.read_csv(
+        ruta_csv, 
+        dtype={'ENTIDAD': str, 'MUN': str, 'LOC': str, 'AGEB': str, 'MZA': str}
+    )
+
+    if 'MZA' in df.columns:
+        df = df[df['MZA'] == '000'].copy()
+
+    df = df[df['AGEB'] != '0000'].copy()
+
+    df['CVEGEO_CENSO'] = (
+        df['ENTIDAD'].str.zfill(2) +
+        df['MUN'].str.zfill(3) +
+        df['LOC'].str.zfill(4) +
+        df['AGEB'].str.zfill(4)
+    )
+
+    columnas_interes = ['POBTOT', 'P_0A2', 'P_3A5', 'P_60YMAS', 'PCON_DISC']
+    for col in columnas_interes:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0).astype(int)
+        else:
+            df[col] = 0
+
+    df['NIÑOS_0A5'] = df['P_0A2'] + df['P_3A5']
+
+    df.rename(columns={
+        'POBTOT': 'POBLACION_TOTAL',
+        'P_60YMAS': 'ADULTOS_MAYORES',
+        'PCON_DISC': 'PERSONAS_DISCAPACIDAD'
+    }, inplace=True)
+
+    cols_exportar = ['CVEGEO_CENSO', 'POBLACION_TOTAL', 'NIÑOS_0A5', 'ADULTOS_MAYORES', 'PERSONAS_DISCAPACIDAD']
+    return df[cols_exportar]
 
 
 def leer_csv(ruta):
@@ -91,7 +132,6 @@ def clasificar_calidad_aire_pm10(valor):
 
 
 def lecturas_validas(sensor_id, pm10, pm25):
-    """Descarta faltantes, valores no numéricos y valores fuera del cribado."""
     try:
         pm10, pm25 = float(pm10), float(pm25)
     except (TypeError, ValueError):
@@ -165,20 +205,39 @@ def crear_geojson(df, timestamp):
     return np.array(puntos), np.array(valores_pm25), np.array(valores_pm10)
 
 
-def cargar_datos_colonias_shp(archivo_shp):
-    """Lee el CRS del .prj MEXICO_ITRF_2008_LCC y lo convierte a WGS84."""
+def cargar_datos_colonias_shp(archivo_shp, df_censo):
+    """Lee el SHP de AGEBs, lo une con la información censal de INEGI y proyecta a WGS84."""
     gdf = gpd.read_file(archivo_shp)
     if gdf.crs is None:
         raise ValueError("El SHP no tiene CRS definido en su archivo .prj.")
 
     gdf = gdf.to_crs("EPSG:4326")
-    nombre_columna = next(col for col in gdf.columns if col != "geometry")
 
-    return [
-        {"nombre": str(fila[nombre_columna]), "geometry": fila.geometry}
-        for _, fila in gdf.iterrows()
-        if fila.geometry is not None and not fila.geometry.is_empty
-    ]
+    posibles_llaves = ['CVEGEO', 'CVE_AGEB', 'CODIGO']
+    col_cve = next((col for col in posibles_llaves if col in gdf.columns), gdf.columns[0])
+    gdf['CVEGEO_SHP'] = gdf[col_cve].astype(str).str.zfill(13)
+
+    if not df_censo.empty:
+        gdf = gdf.merge(
+            df_censo,
+            left_on='CVEGEO_SHP',
+            right_on='CVEGEO_CENSO',
+            how='left'
+        )
+
+    elementos = []
+    for _, fila in gdf.iterrows():
+        if fila.geometry is not None and not fila.geometry.is_empty:
+            elementos.append({
+                "cvegeo": str(fila['CVEGEO_SHP']),
+                "poblacion_total": int(fila.get("POBLACION_TOTAL", 0)) if pd.notnull(fila.get("POBLACION_TOTAL")) else 0,
+                "niños_0a5": int(fila.get("NIÑOS_0A5", 0)) if pd.notnull(fila.get("NIÑOS_0A5")) else 0,
+                "adultos_mayores": int(fila.get("ADULTOS_MAYORES", 0)) if pd.notnull(fila.get("ADULTOS_MAYORES")) else 0,
+                "personas_discapacidad": int(fila.get("PERSONAS_DISCAPACIDAD", 0)) if pd.notnull(fila.get("PERSONAS_DISCAPACIDAD")) else 0,
+                "geometry": fila.geometry
+            })
+
+    return elementos
 
 
 def interpolar_lineal(punto, triangulo_indices, puntos, valores):
@@ -195,7 +254,7 @@ def interpolar_lineal(punto, triangulo_indices, puntos, valores):
 
 
 def generar_geojson_colonias(nombre_archivo, colonias_data, puntos_data,
-                              valores_puntos, contaminante, timestamp):
+                             valores_puntos, contaminante, timestamp):
     try:
         triangulacion = Delaunay(puntos_data)
     except Exception as error:
@@ -222,14 +281,20 @@ def generar_geojson_colonias(nombre_archivo, colonias_data, puntos_data,
                      if indice != -1 else None)
 
         valor = round(float(valor), 2) if valor is not None and np.isfinite(valor) else None
+        
+        # Inclusión de variables interpoladas y censales en el cuadro de atributos (properties)
         features.append({
             "type": "Feature",
             "geometry": mapping(geom),
             "properties": {
-                "nombre": colonia["nombre"],
+                "CVEGEO": colonia["cvegeo"],
                 "valor_interpolado": valor,
                 "AQ": (clasificar_calidad_aire_pm25(valor) if contaminante == "pm2_5"
                        else clasificar_calidad_aire_pm10(valor)),
+                "POBLACION_TOTAL": colonia["poblacion_total"],
+                "NIÑOS_0A5": colonia["niños_0a5"],
+                "ADULTOS_MAYORES": colonia["adultos_mayores"],
+                "PERSONAS_DISCAPACIDAD": colonia["personas_discapacidad"],
                 "timestamp": timestamp,
             },
         })
@@ -242,11 +307,17 @@ def generar_geojson_colonias(nombre_archivo, colonias_data, puntos_data,
 
 if __name__ == "__main__":
     ejecucion = datetime.now(timezone.utc).isoformat()
+    
+    # 1. Cargar censos antes de construir capas espaciales
+    df_censo = cargar_datos_censales(CSV_CENSO_INEGI)
+    
+    # 2. Consultar sensores
     sensores = leer_csv(CSV_FILE)
     puntos, pm25, pm10 = crear_geojson(sensores, ejecucion)
 
+    # 3. Interpolar y generar archivos unificados
     if len(puntos) >= 3 and os.path.exists(ARCHIVO_SHP_COLONIAS):
-        colonias = cargar_datos_colonias_shp(ARCHIVO_SHP_COLONIAS)
+        colonias = cargar_datos_colonias_shp(ARCHIVO_SHP_COLONIAS, df_censo)
         generar_geojson_colonias(SALIDA_GEOJSON_COLONIAS_PM25, colonias, puntos,
                                  pm25, "pm2_5", ejecucion)
         generar_geojson_colonias(SALIDA_GEOJSON_COLONIAS_PM10, colonias, puntos,
