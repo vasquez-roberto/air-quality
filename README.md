@@ -4,7 +4,7 @@ Este proyecto consulta en tiempo real las mediciones de sensores de calidad del 
 
 ---
 
-## 📊 Estructura de la Capa de Salida (`properties`)
+## Estructura de la Capa de Salida (`properties`)
 
 Los archivos de salida (`AQ_PM25.geojson` y `AQ_PM10.geojson`) están estructurados con etiquetas legibles y formateadas para optimizar su visualización interactiva en GitHub, ArcGIS, QGIS u otros visores GeoJSON:
 
@@ -21,7 +21,7 @@ Los archivos de salida (`AQ_PM25.geojson` y `AQ_PM10.geojson`) están estructura
 
 ---
 
-## ⚙️ Funcionalidades del Script
+## Funcionalidades del Script
 
 1. **Lectura del Censo INEGI:** Carga y filtra los indicadores por nivel AGEB urbana eliminando registros municipales o no urbanos (`MZA == '000'`).
 2. **Consulta API PurpleAir:** Descarga en vivo las métricas de `PM2.5` y `PM10`, descartando valores fuera de rango o sensores descalibrados.
@@ -32,7 +32,7 @@ Los archivos de salida (`AQ_PM25.geojson` y `AQ_PM10.geojson`) están estructura
 
 ---
 
-## 📁 Archivos Requeridos
+## Archivos Requeridos
 
 * `sensores_detectados.csv`: Archivo CSV con las coordenadas e IDs de los sensores PurpleAir.
 * `cpv2020.csv`: Archivo con los datos censales por AGEB del INEGI.
