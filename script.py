@@ -282,22 +282,22 @@ def generar_geojson_colonias(nombre_archivo, colonias_data, puntos_data,
 
         valor = round(float(valor), 2) if valor is not None and np.isfinite(valor) else None
         
-        # Inclusión de variables interpoladas y censales en el cuadro de atributos (properties)
+        # Objeto de propiedades formateado para el motor de gráficos de GitHub
         features.append({
             "type": "Feature",
             "geometry": mapping(geom),
             "properties": {
-                "CVEGEO": colonia["cvegeo"],
-                "Valor Interpolado": valor,
-                "Air Quality": (
+                "Valor_Interpolado": valor,
+                "Air_Quality": (
                     clasificar_calidad_aire_pm25(valor)
                     if contaminante == "pm2_5"
                     else clasificar_calidad_aire_pm10(valor)
                 ),
-                "Población Total": colonia["poblacion_total"],
-                "Menos de 5 años": colonia["niños_0a5"],
-                "Mayores de 60 años": colonia["adultos_mayores"],
-                "Personas con discapacidad": colonia["personas_discapacidad"],
+                "Poblacion_Total": colonia["poblacion_total"],
+                "Menos_de_5_anos": colonia["niños_0a5"],
+                "Mayores_de_60_anos": colonia["adultos_mayores"],
+                "Personas_con_discapacidad": colonia["personas_discapacidad"],
+                "CVEGEO": colonia["cvegeo"],
                 "timestamp": timestamp,
             },
         })
