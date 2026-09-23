@@ -1,64 +1,40 @@
-# Air Quality & Sociodemographic Mapping Platform (Monterrey Metropolitan Area)
+# Monitoreo de Calidad del Aire e Impacto Sociodemográfico
 
-Sistema automatizado en Python para el monitoreo, la interpolación espacial de la calidad del aire ($PM_{2.5}$ y $PM_{10}$) y la integración de indicadores sociodemográficos por AGEB (Censo de Población y Vivienda 2020 - INEGI).
-
----
-
-## Descripción del Proyecto
-
-El objetivo de este proyecto es analizar la exposición a contaminantes atmosféricos en poblaciones vulnerables dentro del Área Metropolitana de Monterrey.
-
-El pipeline ejecuta las siguientes fases principales:
-1. **Captura de datos**: Consulta en tiempo real la API de **PurpleAir** utilizando los sensores registrados en la zona.
-2. **Depuración**: Valida y descarta lecturas atípicas o erróneas basadas en los límites normativos de la EPA.
-3. **Interpolación espacial**: Construye superficies continuas de concentración de contaminantes mediante **Triangulación Delaunay**.
-4. **Cruce geográfico e integración censal**: Mapea la información a nivel de **AGEB urbana** (Área Geoestadística Básica del INEGI) uniendo los datos de calidad del aire con la información sociodemográfica extraída del Censo de Población y Vivienda 2020 (`cpv2020.csv`).
-
-Como resultado, se exportan archivos **GeoJSON enriquecidos**, listos para desplegar en visores GIS (ArcGIS, QGIS, Mapbox, Leaflet). Al seleccionar o hacer clic sobre cualquier polígono, el visor despliega tanto el **valor interpolado del contaminante** como la **tabla de datos sociodemográficos** de la población residente.
+Este proyecto consulta en tiempo real las mediciones de sensores de calidad del aire (PurpleAir), realiza interpolación espacial (Delaunay/Triangulación lineal) hacia zonas censales (AGEBs/colonias) y enriquece las capas de salida con datos sociodemográficos del **Censo de Población y Vivienda 2020 (INEGI)**.
 
 ---
 
-## 🛠️ Funcionalidades Principales
+## 📊 Estructura de la Capa de Salida (`properties`)
 
-- **Monitoreo en Tiempo Real**: Consulta automática a la API de PurpleAir para obtener lecturas actualizadas de $PM_{1.0}$ y $PM_{2.5}$.
-- **Generación de Histórico**: Guardado acumulativo de lecturas válidas en un archivo `historico.csv` para análisis de series de tiempo.
-- **Interpolación Lineal Integrada**: Asignación de concentraciones promedio a polígonos que contienen sensores e interpolación basada en la malla Delaunay para polígonos intermedios.
-- **Enriquecimiento Socioambiental**: Cruce directo con la base de datos censal de INEGI para calcular niños de 0 a 5 años, adultos mayores y personas con discapacidad por AGEB.
-- **Salidas WebGIS Listas**: Exportación directa a GeoJSON con proyecciones estandarizadas en WGS84 (`EPSG:4326`).
+Los archivos de salida (`AQ_PM25.geojson` y `AQ_PM10.geojson`) están estructurados con etiquetas legibles y formateadas para optimizar su visualización interactiva en GitHub, ArcGIS, QGIS u otros visores GeoJSON:
 
----
-
-## Variables Integradas por AGEB
-
-Cada polígono en las capas `AQ_PM25.geojson` y `AQ_PM10.geojson` contiene los siguientes atributos dentro de su propiedad `properties`:
-
-| Atributo | Tipo | Descripción | Fuente |
-| :--- | :--- | :--- | :--- |
-| `CVEGEO` | String | Clave geográfica única de la AGEB (13 dígitos) | INEGI / SHP |
-| `valor_interpolado` | Float | Concentración interpolada del contaminante ($\mu g/m^3$) | Interpolación Delaunay |
-| `AQ` | String | Categoría de calidad del aire (*Bueno, Aceptable, Mala, etc.*) | Norma de Calidad del Aire |
-| `POBLACION_TOTAL` | Integer | Población total residente en la AGEB (`POBTOT`) | CPV 2020 (INEGI) |
-| `NIÑOS_0A5` | Integer | Población infantil de 0 a 5 años (`P_0A2` + `P_3A5`) | CPV 2020 (INEGI) |
-| `ADULTOS_MAYORES` | Integer | Población de 60 años y más (`P_60YMAS`) | CPV 2020 (INEGI) |
-| `PERSONAS_DISCAPACIDAD` | Integer | Población con alguna discapacidad (`PCON_DISC`) | CPV 2020 (INEGI) |
-| `timestamp` | String | Fecha y hora UTC del procesamiento y lectura | Sistema |
+| Campo / Etiqueta en GeoJSON | Descripción | Origen del Dato |
+| :--- | :--- | :--- |
+| **` Valor Interpolado`** | Concentración estimada de PM2.5 o PM10 ($\mu g/m^3$). Contiene un espacio inicial para posicionarse en la parte superior del popup/visor. | Interpolación espacial de sensores en vivo |
+| **` Calidad del Aire`** | Clasificación cualitativa (Bueno, Aceptable, Mala, Muy alta, Extremadamente mala). | Umbrales normativos según concentración |
+| **`Población Total`** | Número total de personas en la zona censal. | Censo INEGI 2020 (`POBTOT`) |
+| **`Niños de 0 a 5 años`** | Población de primera infancia vulnerable a partículas finas. | Censo INEGI 2020 (`P_0A2` + `P_3A5`) |
+| **`Mayores de 60 años`** | Adultos mayores dentro del polígono. | Censo INEGI 2020 (`P_60YMAS`) |
+| **`Personas con Discapacidad`** | Población con algún grado o tipo de discapacidad. | Censo INEGI 2020 (`PCON_DISC`) |
+| **`Clave Geográfica (CVEGEO)`** | Identificador único estandarizado del INEGI a 13 dígitos. | Shapefile AGEBs / INEGI |
+| **`Fecha de Actualización`** | Fecha y hora UTC en que se consultó el sensor y se ejecutó la interpolación. | Generado automáticamente en tiempo de ejecución |
 
 ---
 
-## Estructura del Repositorio
+## ⚙️ Funcionalidades del Script
 
-```text
-.
-├── shp/
-│   ├── 2025_1_19_A.shp          # Shapefile de AGEBs urbanas (INEGI)
-│   ├── 2025_1_19_A.prj          # Archivo de proyección geográfica
-│   └── ...
-├── conjunto_de_datos_ageb_urbana_19_cpv2020.csv  # Base de datos censal de INEGI (cpv2020.csv)
-├── sensores_detectados.csv      # Catálogo de sensores PurpleAir (ID, Latitud, Longitud)
-├── .env                         # Claves y variables de entorno (API Key)
-├── main.py                      # Script principal de captura, interpolación y cruce
-├── sociodemografico.py          # Script auxiliar para generación de la capa base de censo
-├── AQ_PM25.geojson              # Capa enriquecida final de PM2.5
-├── AQ_PM10.geojson              # Capa enriquecida final de PM10
-├── sensores.geojson             # Ubicación puntual de sensores procesados
-└── historico.csv                # Histórico de lecturas registradas
+1. **Lectura del Censo INEGI:** Carga y filtra los indicadores por nivel AGEB urbana eliminando registros municipales o no urbanos (`MZA == '000'`).
+2. **Consulta API PurpleAir:** Descarga en vivo las métricas de `PM2.5` y `PM10`, descartando valores fuera de rango o sensores descalibrados.
+3. **Interpolación Espacial:** 
+   * Asigna el promedio directo si hay sensores dentro de la colonia/AGEB.
+   * Aplica triangulación de Delaunay para estimar el valor en el centroide en zonas sin cobertura directa.
+4. **Automatización:** Compatible con **GitHub Actions** para ejecución programada cada cierto tiempo.
+
+---
+
+## 📁 Archivos Requeridos
+
+* `sensores_detectados.csv`: Archivo CSV con las coordenadas e IDs de los sensores PurpleAir.
+* `cpv2020.csv`: Archivo con los datos censales por AGEB del INEGI.
+* `shp/2025_1_19_A.shp`: Shapefile con los polígonos geográficos de las zonas.
+* `.env`: Archivo de configuración con la clave de API (`API_KEY_PURPLEAIR`).
