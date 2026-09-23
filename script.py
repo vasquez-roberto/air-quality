@@ -288,13 +288,16 @@ def generar_geojson_colonias(nombre_archivo, colonias_data, puntos_data,
             "geometry": mapping(geom),
             "properties": {
                 "CVEGEO": colonia["cvegeo"],
-                "valor_interpolado": valor,
-                "AQ": (clasificar_calidad_aire_pm25(valor) if contaminante == "pm2_5"
-                       else clasificar_calidad_aire_pm10(valor)),
-                "POBLACION_TOTAL": colonia["poblacion_total"],
-                "NIÑOS_0A5": colonia["niños_0a5"],
-                "ADULTOS_MAYORES": colonia["adultos_mayores"],
-                "PERSONAS_DISCAPACIDAD": colonia["personas_discapacidad"],
+                "Valor Interpolado": valor,
+                "Air Quality": (
+                    clasificar_calidad_aire_pm25(valor)
+                    if contaminante == "pm2_5"
+                    else clasificar_calidad_aire_pm10(valor)
+                ),
+                "Población Total": colonia["poblacion_total"],
+                "Menos de 5 años": colonia["niños_0a5"],
+                "Mayores de 60 años": colonia["adultos_mayores"],
+                "Personas con discapacidad": colonia["personas_discapacidad"],
                 "timestamp": timestamp,
             },
         })
