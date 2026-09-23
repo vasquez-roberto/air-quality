@@ -282,19 +282,17 @@ def generar_geojson_colonias(nombre_archivo, colonias_data, puntos_data,
 
         valor = round(float(valor), 2) if valor is not None and np.isfinite(valor) else None
         
-        # PROPIEDADES FORMATO LIMPIO / LEGIBLE PARA GITHUB
+        # PROPIEDADES CON FORMATO DE ETIQUETAS DESCRIPTIVAS Y ESPACIO INICIAL PARA PREVALECER EN VISORES
         features.append({
             "type": "Feature",
             "geometry": mapping(geom),
             "properties": {
-                # Espacio inicial para forzar a GitHub a ponerlo primero
                 " Valor Interpolado": valor,
                 " Calidad del Aire": (
                     clasificar_calidad_aire_pm25(valor)
                     if contaminante == "pm2_5"
                     else clasificar_calidad_aire_pm10(valor)
                 ),
-                # Nombres descriptivos para la interfaz
                 "Población Total": colonia["poblacion_total"],
                 "Niños de 0 a 5 años": colonia["niños_0a5"],
                 "Mayores de 60 años": colonia["adultos_mayores"],
