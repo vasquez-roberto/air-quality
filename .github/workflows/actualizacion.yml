@@ -2,11 +2,11 @@ name: Actualizar GeoJSON
 
 on:
   schedule:
-    - cron: '*/20 * * * *'  # Se ejecuta automáticamente cada 20 minutos
-  workflow_dispatch:        # Permite ejecutarlo manualmente desde la pestaña Actions
+    - cron: '*/20 * * * *'  # Cada 20 minutos
+  workflow_dispatch:        # Permite ejecución manual
 
 permissions:
-  contents: write           # Permisos necesarios para escribir en el repositorio
+  contents: write           # Concede permisos de escritura explícitos al GITHUB_TOKEN
 
 jobs:
   build:
@@ -14,13 +14,13 @@ jobs:
 
     steps:
       - name: Clonar repositorio
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
-          persist-credentials: false # Evita conflictos de permisos con la cuenta del bot
+          persist-credentials: true  # Permite usar GITHUB_TOKEN en git push
           fetch-depth: 0
 
       - name: Configurar Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
@@ -36,11 +36,9 @@ jobs:
           python script.py
 
       - name: Guardar y subir cambios
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add .
-          git commit -m "Auto-actualización de archivos GeoJSON" || exit 0
-          git push "https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git" HEAD:main --force
+          git diff-index --quiet HEAD || git commit -m "Auto-actualización de archivos GeoJSON"
+          git push origin main
